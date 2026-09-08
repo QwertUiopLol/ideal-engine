@@ -1,0 +1,1723 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Quest Editor: Reborn</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0a0a;
+            overflow: hidden;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+
+        canvas {
+            display: block;
+            cursor: grab;
+            touch-action: none;
+        }
+
+        .toolbar {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 4px;
+            z-index: 10;
+            background: rgba(10, 10, 15, 0.85);
+            backdrop-filter: blur(8px);
+            padding: 6px 10px;
+            border-radius: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            max-width: 95vw;
+        }
+
+        .toolbar button {
+            padding: 8px 14px;
+            border: none;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.08);
+            color: #ccc;
+            font-size: 13px;
+            cursor: pointer;
+            transition: 0.2s;
+            letter-spacing: 0.3px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .toolbar button.active {
+            background: #3a6ea5;
+            color: white;
+            box-shadow: 0 0 12px rgba(60, 120, 200, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .toolbar button:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+        }
+
+        .toolbar button.active:hover {
+            background: #4a7eb5;
+        }
+
+        .hint {
+            position: fixed;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 12px;
+            pointer-events: none;
+            user-select: none;
+            letter-spacing: 0.5px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 4px 14px;
+            border-radius: 20px;
+            backdrop-filter: blur(4px);
+            white-space: nowrap;
+            max-width: 90vw;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .node-settings {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #1a1d2e;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            padding: 20px 18px;
+            z-index: 20;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            width: calc(100vw - 40px);
+            max-width: 420px;
+            max-height: 85vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            color: #ddd;
+        }
+
+        .node-settings h3 {
+            margin: 0 0 4px;
+            font-weight: 400;
+            color: #ccc;
+            font-size: 1.1em;
+            text-align: center;
+        }
+
+        .setting-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .setting-row label {
+            font-size: 13px;
+            color: #aaa;
+            min-width: 65px;
+        }
+
+        .setting-row input[type=range] {
+            width: 90px;
+            cursor: pointer;
+        }
+
+        .setting-row input[type=number],
+        .setting-row input[type=text] {
+            width: 55px;
+            background: #2a2d3a;
+            border: 1px solid #444;
+            color: #ddd;
+            padding: 4px 4px;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .setting-row select {
+            background: #2a2d3a;
+            border: 1px solid #444;
+            color: #ddd;
+            padding: 6px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            flex: 1;
+            font-size: 14px;
+        }
+
+        .setting-row textarea,
+        .setting-row input[type=text].full-width {
+            flex: 1;
+            background: #2a2d3a;
+            border: 1px solid #444;
+            color: #ddd;
+            padding: 6px 8px;
+            border-radius: 6px;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 45px;
+            font-size: 14px;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            background: none;
+            border: none;
+            color: #999;
+            font-size: 22px;
+            cursor: pointer;
+            transition: 0.2s;
+            line-height: 1;
+        }
+
+        .close-btn:hover {
+            color: white;
+        }
+
+        .delete-btn {
+            margin-top: 4px;
+            background: #5a2a2a;
+            border: none;
+            color: #ffaaaa;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 14px;
+            width: 100%;
+        }
+
+        .delete-btn:hover {
+            background: #6a3a3a;
+        }
+
+        .task-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            max-height: 120px;
+            overflow-y: auto;
+            background: #161920;
+            border-radius: 6px;
+            padding: 6px;
+        }
+
+        .task-item-row {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 13px;
+            background: #2a2d3a;
+            padding: 4px 6px;
+            border-radius: 4px;
+        }
+
+        .task-item-row span {
+            flex: 1;
+            color: #ddd;
+            word-break: break-word;
+        }
+
+        .task-item-row button {
+            background: none;
+            border: none;
+            color: #e0556a;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 0 4px;
+        }
+
+        .panel-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 50;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s;
+        }
+
+        .panel-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .detail-panel {
+            position: fixed;
+            top: 0;
+            right: -520px;
+            width: 480px;
+            max-width: 92vw;
+            height: 100%;
+            background: #16213e;
+            border-left: 1px solid #2a3a55;
+            z-index: 55;
+            transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            box-shadow: -8px 0 30px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            color: #d0d8e8;
+        }
+
+        .detail-panel.active {
+            right: 0;
+        }
+
+        .panel-header {
+            padding: 16px 18px;
+            border-bottom: 1px solid #2a3a55;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            flex-shrink: 0;
+            background: #1a1a2e;
+            position: relative;
+        }
+
+        .panel-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7em;
+            font-weight: 600;
+            flex-shrink: 0;
+            text-align: center;
+            word-break: break-all;
+            padding: 2px;
+            background: #3a7abf;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .panel-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        .panel-icon .icon-letter {
+            position: absolute;
+            color: white;
+            font-size: 1.4em;
+            font-weight: 700;
+            line-height: 1;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+        }
+
+        .panel-title {
+            font-size: 1.15em;
+            font-weight: 700;
+            color: #fff;
+            word-wrap: break-word;
+        }
+
+        .panel-subtitle {
+            font-size: 0.85em;
+            color: #99a8c0;
+            margin-top: 2px;
+        }
+
+        .panel-close {
+            background: none;
+            border: none;
+            color: #99a8c0;
+            cursor: pointer;
+            font-size: 1.5em;
+            padding: 4px 8px;
+            border-radius: 4px;
+            flex-shrink: 0;
+            transition: 0.2s;
+        }
+
+        .panel-close:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .panel-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 18px;
+        }
+
+        .panel-section h4 {
+            font-size: 0.8em;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #99a8c0;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .desc-text {
+            font-size: 0.9em;
+            line-height: 1.5;
+            color: #c8d4e4;
+            word-wrap: break-word;
+        }
+
+        .desc-text img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            margin: 8px 0;
+        }
+
+        .task-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            background: #1f2b3d;
+            border-radius: 6px;
+            font-size: 0.85em;
+            margin: 3px 0;
+            color: #d0d8e8;
+        }
+
+        .task-item.optional {
+            opacity: 0.75;
+            border-left: 3px solid #ffaa44;
+        }
+
+        .dep-tag {
+            display: inline-flex;
+            align-items: center;
+            background: #1f2b3d;
+            padding: 5px 10px;
+            border-radius: 14px;
+            font-size: 0.8em;
+            cursor: pointer;
+            margin: 2px 4px 2px 0;
+            transition: 0.2s;
+            border: 1px solid transparent;
+            color: #bcc8dd;
+            gap: 4px;
+        }
+
+        .dep-tag:hover {
+            border-color: #4da6ff;
+            color: #fff;
+            background: #253548;
+        }
+
+        .dep-tag .remove-edge-btn {
+            background: none;
+            border: none;
+            color: #e0556a;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 0 2px;
+            line-height: 1;
+            margin-left: 2px;
+            opacity: 0.7;
+            transition: 0.2s;
+        }
+
+        .dep-tag .remove-edge-btn:hover {
+            opacity: 1;
+            color: #ff6677;
+        }
+
+        .edit-node-btn {
+            margin-top: 12px;
+            width: 100%;
+            padding: 10px;
+            background: #1a4a6e;
+            border: 1px solid #3a7abf;
+            color: #c0e0ff;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: 0.2s;
+            display: none;
+        }
+
+        .edit-node-btn.visible {
+            display: block;
+        }
+
+        .edit-node-btn:hover {
+            background: #1e5a8a;
+            color: #fff;
+        }
+
+        .file-input-hidden {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .asset-picker-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 60;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+
+        .asset-picker-overlay.active {
+            display: flex;
+        }
+
+        .asset-picker-panel {
+            background: #1a1d2e;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            padding: 18px;
+            width: calc(100vw - 40px);
+            max-width: 480px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
+            color: #ddd;
+        }
+
+        .asset-picker-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .asset-picker-header h3 {
+            font-weight: 400;
+            font-size: 1.05em;
+            color: #ccc;
+        }
+
+        .asset-picker-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .asset-picker-toolbar button {
+            padding: 8px 14px;
+            border: none;
+            border-radius: 20px;
+            background: #3a6ea5;
+            color: white;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .asset-picker-toolbar button:hover {
+            background: #4a7eb5;
+        }
+
+        .asset-picker-folder-label {
+            font-size: 12px;
+            color: #8899b8;
+            word-break: break-all;
+        }
+
+        .asset-picker-hint {
+            font-size: 12px;
+            color: #8899b8;
+            line-height: 1.4;
+            margin: 0;
+        }
+
+        .asset-picker-hint code {
+            background: #2a2d3a;
+            padding: 1px 5px;
+            border-radius: 4px;
+            color: #bcd;
+        }
+
+        .asset-picker-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+            gap: 8px;
+            overflow-y: auto;
+            padding: 4px 2px;
+        }
+
+        .asset-picker-empty {
+            grid-column: 1 / -1;
+            color: #8899b8;
+            font-size: 13px;
+            text-align: center;
+            padding: 20px 10px;
+            line-height: 1.5;
+        }
+
+        .asset-picker-cell {
+            background: #2a2d3a;
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            transition: 0.15s;
+        }
+
+        .asset-picker-cell:hover {
+            border-color: #4da6ff;
+            background: #32384a;
+        }
+
+        .asset-picker-cell img {
+            width: 48px;
+            height: 48px;
+            object-fit: contain;
+            border-radius: 4px;
+            background: #161920;
+        }
+
+        .asset-picker-cell span {
+            font-size: 10px;
+            color: #aab;
+            text-align: center;
+            word-break: break-all;
+            line-height: 1.2;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+
+        @media (max-width: 480px) {
+            .toolbar button {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+            .node-settings {
+                padding: 16px 12px;
+                gap: 8px;
+            }
+            .setting-row label {
+                font-size: 12px;
+                min-width: 50px;
+            }
+            .setting-row input[type=range] {
+                width: 70px;
+            }
+            .detail-panel {
+                width: 100%;
+                max-width: 100%;
+                right: -105%;
+            }
+            .detail-panel.active {
+                right: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="field"></canvas>
+
+    <div class="toolbar">
+        <button id="modeCamera" class="active">Camera mode</button>
+        <button id="modeCreate">Add Quest</button>
+        <button id="modeConnect">Link</button>
+        <button id="modeEdit">Edit mode</button>
+        <button id="exportBtn">Export</button>
+        <button id="importBtn">Import</button>
+    </div>
+
+    <div class="hint" id="hintText">Pan: drag | Click node - view</div>
+
+    <div class="node-settings" id="nodeSettings">
+        <button class="close-btn" id="closeSettings">✕</button>
+        <h3>Node <span id="settingsNodeId"></span></h3>
+        <div class="setting-row"><label>Title</label><input type="text" id="titleInput" class="full-width" placeholder="Enter title" maxlength="80"></div>
+        <div class="setting-row"><label>Subtitle</label><input type="text" id="subtitleInput" class="full-width" placeholder="Short description" maxlength="120"></div>
+        <div class="setting-row"><label>Description</label><textarea id="descInput" placeholder="Supports HTML and images" rows="3"></textarea></div>
+        <div class="setting-row" style="gap:4px;"><button id="addImageUrlBtn">Image URL</button><button id="uploadImageBtn">Image file</button></div>
+        <div class="setting-row"><label>Shape</label>
+            <select id="shapeSelect">
+                <option value="circle">Circle</option><option value="star">Star (5)</option>
+                <option value="3">Triangle</option><option value="4">Square</option>
+                <option value="5">Pentagon</option><option value="6">Hexagon</option>
+                <option value="7">Heptagon</option><option value="8">Octagon</option>
+                <option value="9">Nonagon</option><option value="10">Decagon</option>
+            </select>
+        </div>
+        <div class="setting-row"><label>Size</label><input type="range" id="sizeSlider" min="1" max="100" value="18" step="1"><input type="number" id="sizeNumber" min="1" max="100" value="18" step="1"></div>
+        <div class="setting-row"><label>Icon</label><input type="text" id="iconUrlInput" class="full-width" placeholder="URL or data:..."><button id="uploadIconBtn">File</button><button id="pickAssetIconBtn">Game folder</button></div>
+        <div class="setting-row"><label>Tasks</label></div>
+        <div class="task-list" id="taskListContainer"></div>
+        <div class="setting-row" style="gap:4px;">
+            <input type="text" id="newTaskInput" class="full-width" placeholder="Task text">
+            <label style="font-size:12px;"><input type="checkbox" id="newTaskOptional"> opt.</label>
+        </div>
+        <div class="setting-row"><label>Check</label>
+            <select id="newTaskTypeSelect">
+                <option value="manual">Manual (player checks)</option>
+                <option value="item">Have item in inventory</option>
+            </select>
+        </div>
+        <div class="setting-row" id="newTaskItemRow" style="gap:4px; display:none;">
+            <input type="text" id="newTaskItemId" class="full-width" placeholder="Item ID e.g. IR-stone">
+            <input type="number" id="newTaskItemCount" min="1" step="1" value="1">
+        </div>
+        <div class="setting-row" style="gap:4px;">
+            <button id="addTaskBtn" style="flex:1;">+ Add task</button>
+        </div>
+        <button class="delete-btn" id="deleteNodeBtn">Delete node</button>
+    </div>
+
+    <div class="panel-overlay" id="panelOverlay"></div>
+    <div class="detail-panel" id="detailPanel">
+        <div class="panel-header">
+            <div class="panel-icon" id="panelIcon">
+                <span class="icon-letter" id="iconLetter">?</span>
+            </div>
+            <div style="flex:1; min-width:0;">
+                <div class="panel-title" id="panelTitle">Untitled</div>
+                <div class="panel-subtitle" id="panelSubtitle"></div>
+                <div class="panel-subtitle" id="panelNodeId" style="font-size:0.75em; color:#7799bb; margin-top:2px; display:none;"></div>
+            </div>
+            <button class="panel-close" id="panelClose">✕</button>
+        </div>
+        <div class="panel-body" id="panelBody"></div>
+        <button class="edit-node-btn" id="editFromPanelBtn">Edit node</button>
+    </div>
+
+    <div class="asset-picker-overlay" id="assetPickerOverlay">
+        <div class="asset-picker-panel">
+            <div class="asset-picker-header">
+                <h3>Choose icon from game folder</h3>
+                <button class="close-btn" id="assetPickerCloseBtn">✕</button>
+            </div>
+            <div class="asset-picker-toolbar">
+                <button id="assetPickerSelectFolderBtn">Select assets folder…</button>
+                <span class="asset-picker-folder-label" id="assetPickerFolderLabel">No folder selected</span>
+            </div>
+            <p class="asset-picker-hint">Select your game's <code>assets</code> folder. The picked icon is stored as a path like <code>assets/pickaxe.png</code> — it will only show up in-game if that file actually lives there.</p>
+            <div class="asset-picker-grid" id="assetPickerGrid">
+                <div class="asset-picker-empty">Select the game's assets folder to see its images here.</div>
+            </div>
+        </div>
+    </div>
+
+    <input type="file" id="iconFileInput" class="file-input-hidden" accept="image/*">
+    <input type="file" id="descImageInput" class="file-input-hidden" accept="image/*">
+    <input type="file" id="importFileInput" class="file-input-hidden" accept=".json,application/json">
+    <input type="file" id="assetFolderFallbackInput" class="file-input-hidden" webkitdirectory multiple accept="image/*">
+
+    <script>
+        (function() {
+            const canvas = document.getElementById('field');
+            const ctx = canvas.getContext('2d');
+
+            const MAX_IMAGE_WIDTH = 400;
+            const JPEG_QUALITY = 0.6;
+
+            function compressImage(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const img = new Image();
+                        img.onload = function() {
+                            let { width, height } = img;
+                            if (width > height && width > MAX_IMAGE_WIDTH) {
+                                height = (height * MAX_IMAGE_WIDTH) / width;
+                                width = MAX_IMAGE_WIDTH;
+                            } else if (height > MAX_IMAGE_WIDTH) {
+                                width = (width * MAX_IMAGE_WIDTH) / height;
+                                height = MAX_IMAGE_WIDTH;
+                            }
+                            const tmpCanvas = document.createElement('canvas');
+                            tmpCanvas.width = width;
+                            tmpCanvas.height = height;
+                            const tmpCtx = tmpCanvas.getContext('2d');
+                            tmpCtx.drawImage(img, 0, 0, width, height);
+                            const isPng = file.type === 'image/png';
+                            const mime = isPng ? 'image/png' : 'image/jpeg';
+                            const dataUrl = tmpCanvas.toDataURL(mime, JPEG_QUALITY);
+                            resolve(dataUrl);
+                        };
+                        img.onerror = reject;
+                        img.src = e.target.result;
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            let cameraX = 0,
+                cameraY = 0;
+            let mode = 'camera';
+            let nodes = [];
+            let edges = [];
+            let nextNodeId = 1;
+            let selectedNodeId = null;
+
+            let isDragging = false;
+            let dragType = null;
+            let dragNodeId = null;
+            let dragStartMouseX = 0,
+                dragStartMouseY = 0;
+            let dragStartCameraX = 0,
+                dragStartCameraY = 0;
+            let dragStartNodeWorldX = 0,
+                dragStartNodeWorldY = 0;
+            let hasMoved = false;
+
+            let editingNodeId = null;
+            let viewingNodeId = null;
+
+            const modeCameraBtn = document.getElementById('modeCamera');
+            const modeCreateBtn = document.getElementById('modeCreate');
+            const modeConnectBtn = document.getElementById('modeConnect');
+            const modeEditBtn = document.getElementById('modeEdit');
+            const exportBtn = document.getElementById('exportBtn');
+            const importBtn = document.getElementById('importBtn');
+            const hintText = document.getElementById('hintText');
+            const settingsPanel = document.getElementById('nodeSettings');
+            const settingsNodeIdSpan = document.getElementById('settingsNodeId');
+            const shapeSelect = document.getElementById('shapeSelect');
+            const sizeSlider = document.getElementById('sizeSlider');
+            const sizeNumber = document.getElementById('sizeNumber');
+            const titleInput = document.getElementById('titleInput');
+            const subtitleInput = document.getElementById('subtitleInput');
+            const descInput = document.getElementById('descInput');
+            const iconUrlInput = document.getElementById('iconUrlInput');
+            const deleteNodeBtn = document.getElementById('deleteNodeBtn');
+            const closeSettingsBtn = document.getElementById('closeSettings');
+            const addImageUrlBtn = document.getElementById('addImageUrlBtn');
+            const uploadImageBtn = document.getElementById('uploadImageBtn');
+            const uploadIconBtn = document.getElementById('uploadIconBtn');
+            const iconFileInput = document.getElementById('iconFileInput');
+            const descImageInput = document.getElementById('descImageInput');
+            const importFileInput = document.getElementById('importFileInput');
+            const pickAssetIconBtn = document.getElementById('pickAssetIconBtn');
+            const assetPickerOverlay = document.getElementById('assetPickerOverlay');
+            const assetPickerGrid = document.getElementById('assetPickerGrid');
+            const assetPickerFolderLabel = document.getElementById('assetPickerFolderLabel');
+            const assetPickerSelectFolderBtn = document.getElementById('assetPickerSelectFolderBtn');
+            const assetPickerCloseBtn = document.getElementById('assetPickerCloseBtn');
+            const assetFolderFallbackInput = document.getElementById('assetFolderFallbackInput');
+            const taskListContainer = document.getElementById('taskListContainer');
+            const newTaskInput = document.getElementById('newTaskInput');
+            const newTaskOptional = document.getElementById('newTaskOptional');
+            const addTaskBtn = document.getElementById('addTaskBtn');
+            const newTaskTypeSelect = document.getElementById('newTaskTypeSelect');
+            const newTaskItemRow = document.getElementById('newTaskItemRow');
+            const newTaskItemId = document.getElementById('newTaskItemId');
+            const newTaskItemCount = document.getElementById('newTaskItemCount');
+
+            const panelOverlay = document.getElementById('panelOverlay');
+            const detailPanel = document.getElementById('detailPanel');
+            const panelIcon = document.getElementById('panelIcon');
+            const iconLetter = document.getElementById('iconLetter');
+            const panelTitle = document.getElementById('panelTitle');
+            const panelSubtitle = document.getElementById('panelSubtitle');
+            const panelNodeId = document.getElementById('panelNodeId');
+            const panelBody = document.getElementById('panelBody');
+            const panelClose = document.getElementById('panelClose');
+            const editFromPanelBtn = document.getElementById('editFromPanelBtn');
+
+            function screenToWorld(sx, sy) { return { x: sx + cameraX, y: sy + cameraY }; }
+
+            function worldToScreen(wx, wy) { return { x: wx - cameraX, y: wy - cameraY }; }
+
+            function hitTestNode(mx, my) {
+                for (const node of nodes) {
+                    const s = worldToScreen(node.x, node.y);
+                    const dx = mx - s.x,
+                        dy = my - s.y;
+                    const r = node.radius || 18;
+                    if (dx * dx + dy * dy <= (r + 6) * (r + 6)) return node.id;
+                }
+                return null;
+            }
+
+            function edgeExists(a, b) { return edges.some(e => (e.from === a && e.to === b) || (e.from === b && e.to === a)); }
+
+            function deleteNode(nodeId) {
+                nodes = nodes.filter(n => n.id !== nodeId);
+                edges = edges.filter(e => e.from !== nodeId && e.to !== nodeId);
+                if (selectedNodeId === nodeId) selectedNodeId = null;
+                if (editingNodeId === nodeId) closeSettingsPanel();
+                if (viewingNodeId === nodeId) closeDetailPanel();
+            }
+
+            function getNodeById(id) { return nodes.find(n => n.id === id); }
+
+            function loadImage(url, callback) {
+                const img = new Image();
+                img.onload = () => callback(img);
+                img.onerror = () => callback(null);
+                img.src = url;
+            }
+
+            function removeEdge(fromId, toId) {
+                edges = edges.filter(e => !(e.from === fromId && e.to === toId));
+                if (viewingNodeId && (viewingNodeId === fromId || viewingNodeId === toId)) {
+                    updateDetailPanel(viewingNodeId);
+                }
+            }
+
+            function openSettingsPanel(nodeId) {
+                if (mode !== 'edit') return;
+                const node = getNodeById(nodeId);
+                if (!node) return;
+                editingNodeId = nodeId;
+                settingsNodeIdSpan.textContent = nodeId;
+                titleInput.value = node.title || '';
+                subtitleInput.value = node.subtitle || '';
+                descInput.value = node.description || '';
+                shapeSelect.value = node.shape || 'circle';
+                const radius = node.radius || 18;
+                sizeSlider.value = radius;
+                sizeNumber.value = radius;
+                iconUrlInput.value = node.iconUrl || '';
+                renderTaskList(node);
+                settingsPanel.style.display = 'flex';
+                selectedNodeId = nodeId;
+                closeDetailPanel();
+            }
+
+            function closeSettingsPanel() {
+                settingsPanel.style.display = 'none';
+                editingNodeId = null;
+            }
+
+            function applySettingsChanges() {
+                if (editingNodeId === null) return;
+                const node = getNodeById(editingNodeId);
+                if (!node) return;
+                node.title = titleInput.value.trim();
+                node.subtitle = subtitleInput.value.trim();
+                node.description = descInput.value.trim();
+                node.shape = shapeSelect.value;
+                node.radius = parseInt(sizeNumber.value, 10) || 18;
+                const newIconUrl = iconUrlInput.value.trim();
+                if (newIconUrl !== node.iconUrl) {
+                    node.iconUrl = newIconUrl;
+                    node.iconImage = null;
+                    node.iconPreviewUrl = null;
+                    if (newIconUrl) {
+                        loadImage(newIconUrl, (img) => { if (node.iconUrl === newIconUrl) node.iconImage = img; });
+                    }
+                }
+                if (viewingNodeId === editingNodeId) updateDetailPanel(editingNodeId);
+            }
+
+            function taskLabel(task) {
+                let label = (task.optional ? '[opt.] ' : '') + task.text;
+                if (task.type === 'item') {
+                    label += '  ⚙ ' + (task.itemId || '?') + ' ×' + (task.itemCount || 1);
+                }
+                return label;
+            }
+
+            function renderTaskList(node) {
+                taskListContainer.innerHTML = '';
+                if (!node.tasks) node.tasks = [];
+                node.tasks.forEach((task, index) => {
+                    const row = document.createElement('div');
+                    row.className = 'task-item-row';
+                    const text = document.createElement('span');
+                    text.textContent = taskLabel(task);
+                    const delBtn = document.createElement('button');
+                    delBtn.innerHTML = '×';
+                    delBtn.title = 'Delete task';
+                    delBtn.addEventListener('click', () => {
+                        node.tasks.splice(index, 1);
+                        renderTaskList(node);
+                        applySettingsChanges();
+                    });
+                    row.appendChild(text);
+                    row.appendChild(delBtn);
+                    taskListContainer.appendChild(row);
+                });
+            }
+
+            newTaskTypeSelect.addEventListener('change', () => {
+                newTaskItemRow.style.display = newTaskTypeSelect.value === 'item' ? 'flex' : 'none';
+            });
+
+            addTaskBtn.addEventListener('click', () => {
+                if (editingNodeId === null) return;
+                const node = getNodeById(editingNodeId);
+                if (!node) return;
+                const text = newTaskInput.value.trim();
+                if (!text) return;
+                const type = newTaskTypeSelect.value === 'item' ? 'item' : 'manual';
+                const task = { text: text, optional: newTaskOptional.checked, type: type };
+                if (type === 'item') {
+                    const itemId = newTaskItemId.value.trim();
+                    if (!itemId) { alert('Enter an item ID for an inventory-check task.'); return; }
+                    task.itemId = itemId;
+                    task.itemCount = Math.max(1, parseInt(newTaskItemCount.value, 10) || 1);
+                }
+                if (!node.tasks) node.tasks = [];
+                node.tasks.push(task);
+                newTaskInput.value = '';
+                newTaskOptional.checked = false;
+                newTaskItemId.value = '';
+                newTaskItemCount.value = '1';
+                newTaskTypeSelect.value = 'manual';
+                newTaskItemRow.style.display = 'none';
+                renderTaskList(node);
+                applySettingsChanges();
+            });
+
+            sizeSlider.addEventListener('input', () => { sizeNumber.value = sizeSlider.value;
+                applySettingsChanges(); });
+            sizeNumber.addEventListener('input', () => {
+                let val = parseInt(sizeNumber.value, 10);
+                if (isNaN(val) || val < 1) val = 1;
+                if (val > 100) val = 100;
+                sizeNumber.value = val;
+                sizeSlider.value = val;
+                applySettingsChanges();
+            });
+            shapeSelect.addEventListener('change', applySettingsChanges);
+            titleInput.addEventListener('input', applySettingsChanges);
+            subtitleInput.addEventListener('input', applySettingsChanges);
+            descInput.addEventListener('input', applySettingsChanges);
+            iconUrlInput.addEventListener('input', applySettingsChanges);
+
+            closeSettingsBtn.addEventListener('click', closeSettingsPanel);
+            deleteNodeBtn.addEventListener('click', () => {
+                if (editingNodeId !== null) {
+                    deleteNode(editingNodeId);
+                    closeSettingsPanel();
+                }
+            });
+
+            uploadIconBtn.addEventListener('click', () => iconFileInput.click());
+            iconFileInput.addEventListener('change', async () => {
+                const file = iconFileInput.files[0];
+                if (!file) return;
+                try {
+                    const compressed = await compressImage(file);
+                    iconUrlInput.value = compressed;
+                    applySettingsChanges();
+                } catch (e) {
+                    alert('Failed to process image');
+                }
+                iconFileInput.value = '';
+            });
+
+            addImageUrlBtn.addEventListener('click', () => {
+                const url = prompt('Enter image URL:');
+                if (url) { descInput.value += `<img src="${url}" alt="image">`;
+                    applySettingsChanges(); }
+            });
+            uploadImageBtn.addEventListener('click', () => descImageInput.click());
+            descImageInput.addEventListener('change', async () => {
+                const file = descImageInput.files[0];
+                if (!file) return;
+                try {
+                    const compressed = await compressImage(file);
+                    descInput.value += `<img src="${compressed}" alt="image">`;
+                    applySettingsChanges();
+                } catch (e) {
+                    alert('Failed to process image');
+                }
+                descImageInput.value = '';
+            });
+
+            // ============================================
+            // Icon picker: browse the game's assets folder
+            // ============================================
+
+            let assetsDirHandle = null; // File System Access API handle (session only)
+            let assetPickerBlobUrls = []; // generated preview URLs, revoked when no longer used
+            const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|svg)$/i;
+            const MAX_ASSET_ENTRIES = 500;
+
+            function releaseUnusedAssetBlobs() {
+                const inUse = new Set(nodes.map(n => n.iconPreviewUrl).filter(Boolean));
+                assetPickerBlobUrls = assetPickerBlobUrls.filter(url => {
+                    if (inUse.has(url)) return true;
+                    URL.revokeObjectURL(url);
+                    return false;
+                });
+            }
+
+            function openAssetPicker() {
+                if (editingNodeId === null) return;
+                assetPickerOverlay.classList.add('active');
+                if (assetsDirHandle) {
+                    loadAssetsFromDirHandle(assetsDirHandle);
+                }
+            }
+
+            function closeAssetPicker() {
+                assetPickerOverlay.classList.remove('active');
+            }
+
+            assetPickerSelectFolderBtn.addEventListener('click', async () => {
+                if ('showDirectoryPicker' in window) {
+                    try {
+                        const handle = await window.showDirectoryPicker();
+                        assetsDirHandle = handle;
+                        assetPickerFolderLabel.textContent = handle.name;
+                        await loadAssetsFromDirHandle(handle);
+                    } catch (err) {
+                        if (err.name !== 'AbortError') alert('Could not open folder: ' + err.message);
+                    }
+                } else {
+                    assetFolderFallbackInput.click();
+                }
+            });
+
+            assetFolderFallbackInput.addEventListener('change', () => {
+                const files = Array.from(assetFolderFallbackInput.files || []).filter(f => IMAGE_EXT_RE.test(f.name));
+                if (files.length === 0) {
+                    assetPickerGrid.innerHTML = '<div class="asset-picker-empty">No images found in that folder.</div>';
+                    assetFolderFallbackInput.value = '';
+                    return;
+                }
+                const rootName = files[0].webkitRelativePath.split('/')[0];
+                assetPickerFolderLabel.textContent = rootName;
+                releaseUnusedAssetBlobs();
+                const entries = files.slice(0, MAX_ASSET_ENTRIES).map(f => {
+                    const relativePath = f.webkitRelativePath.split('/').slice(1).join('/');
+                    const url = URL.createObjectURL(f);
+                    assetPickerBlobUrls.push(url);
+                    return { relativePath, url, name: f.name };
+                });
+                renderAssetPickerGrid(entries);
+                assetFolderFallbackInput.value = '';
+            });
+
+            async function loadAssetsFromDirHandle(dirHandle) {
+                assetPickerGrid.innerHTML = '<div class="asset-picker-empty">Loading…</div>';
+                releaseUnusedAssetBlobs();
+                const entries = [];
+                async function walk(handle, prefix) {
+                    for await (const [name, entryHandle] of handle.entries()) {
+                        if (entries.length >= MAX_ASSET_ENTRIES) return;
+                        if (entryHandle.kind === 'file') {
+                            if (IMAGE_EXT_RE.test(name)) {
+                                try {
+                                    const file = await entryHandle.getFile();
+                                    const url = URL.createObjectURL(file);
+                                    assetPickerBlobUrls.push(url);
+                                    entries.push({ relativePath: prefix + name, url, name });
+                                } catch (e) { /* skip unreadable file */ }
+                            }
+                        } else if (entryHandle.kind === 'directory') {
+                            await walk(entryHandle, prefix + name + '/');
+                        }
+                    }
+                }
+                try {
+                    await walk(dirHandle, '');
+                } catch (err) {
+                    assetPickerGrid.innerHTML = '<div class="asset-picker-empty">Could not read folder: ' + err.message + '</div>';
+                    return;
+                }
+                renderAssetPickerGrid(entries);
+            }
+
+            function renderAssetPickerGrid(entries) {
+                if (entries.length === 0) {
+                    assetPickerGrid.innerHTML = '<div class="asset-picker-empty">No images found in that folder.</div>';
+                    return;
+                }
+                entries.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+                assetPickerGrid.innerHTML = '';
+                entries.forEach(entry => {
+                    const cell = document.createElement('button');
+                    cell.className = 'asset-picker-cell';
+                    cell.title = entry.relativePath;
+                    const img = document.createElement('img');
+                    img.src = entry.url;
+                    img.alt = '';
+                    const label = document.createElement('span');
+                    label.textContent = entry.name;
+                    cell.appendChild(img);
+                    cell.appendChild(label);
+                    cell.addEventListener('click', () => selectAssetIcon('assets/' + entry.relativePath, entry.url));
+                    assetPickerGrid.appendChild(cell);
+                });
+            }
+
+            function selectAssetIcon(relativeIconUrl, previewBlobUrl) {
+                if (editingNodeId === null) return;
+                const node = getNodeById(editingNodeId);
+                if (!node) return;
+                node.iconUrl = relativeIconUrl;
+                node.iconPreviewUrl = previewBlobUrl;
+                node.iconImage = null;
+                iconUrlInput.value = relativeIconUrl;
+                loadImage(previewBlobUrl, (img) => { if (node.iconUrl === relativeIconUrl) node.iconImage = img; });
+                if (viewingNodeId === editingNodeId) updateDetailPanel(editingNodeId);
+                closeAssetPicker();
+            }
+
+            pickAssetIconBtn.addEventListener('click', openAssetPicker);
+            assetPickerCloseBtn.addEventListener('click', closeAssetPicker);
+            assetPickerOverlay.addEventListener('click', (e) => { if (e.target === assetPickerOverlay) closeAssetPicker(); });
+
+            function openDetailPanel(nodeId) {
+                const node = getNodeById(nodeId);
+                if (!node) return;
+                viewingNodeId = nodeId;
+                updateDetailPanel(nodeId);
+                detailPanel.classList.add('active');
+                panelOverlay.classList.add('active');
+                updateEditButtonVisibility();
+            }
+
+            function updateDetailPanel(nodeId) {
+                const node = getNodeById(nodeId);
+                if (!node) return;
+                panelTitle.textContent = node.title || 'Untitled';
+                panelSubtitle.textContent = node.subtitle || '';
+                panelNodeId.textContent = 'ID: ' + node.id;
+                panelNodeId.style.display = mode === 'edit' ? 'block' : 'none';
+
+                // Icon handling: show image if available, otherwise letter
+                const existingImg = panelIcon.querySelector('img');
+                if (existingImg) existingImg.remove();
+                if (node.iconUrl) {
+                    iconLetter.style.display = 'none';
+                    const img = document.createElement('img');
+                    img.src = node.iconPreviewUrl || node.iconUrl;
+                    img.alt = 'icon';
+                    img.onerror = () => {
+                        img.remove();
+                        iconLetter.style.display = 'block';
+                        iconLetter.textContent = (node.title || '?').charAt(0).toUpperCase();
+                    };
+                    panelIcon.appendChild(img);
+                } else {
+                    iconLetter.style.display = 'block';
+                    iconLetter.textContent = (node.title || '?').charAt(0).toUpperCase();
+                }
+                panelIcon.style.backgroundColor = getNodeColor(node);
+
+                panelBody.innerHTML = '';
+                if (node.description) {
+                    const sec = document.createElement('div');
+                    sec.className = 'panel-section';
+                    sec.innerHTML = '<h4>Description</h4>';
+                    const descDiv = document.createElement('div');
+                    descDiv.className = 'desc-text';
+                    descDiv.innerHTML = node.description;
+                    sec.appendChild(descDiv);
+                    panelBody.appendChild(sec);
+                }
+                if (node.tasks && node.tasks.length > 0) {
+                    const sec = document.createElement('div');
+                    sec.className = 'panel-section';
+                    sec.innerHTML = '<h4>Tasks</h4>';
+                    node.tasks.forEach(task => {
+                        const div = document.createElement('div');
+                        div.className = 'task-item' + (task.optional ? ' optional' : '');
+                        div.textContent = taskLabel(task);
+                        sec.appendChild(div);
+                    });
+                    panelBody.appendChild(sec);
+                }
+                const dependencies = edges.filter(e => e.to === nodeId).map(e => e.from);
+                const dependents = edges.filter(e => e.from === nodeId).map(e => e.to);
+                const depSec = document.createElement('div');
+                depSec.className = 'panel-section';
+                depSec.innerHTML = '<h4>Dependencies</h4>';
+                if (dependencies.length === 0 && dependents.length === 0) {
+                    depSec.innerHTML += '<span style="color:#8899b8;">No connections</span>';
+                } else {
+                    if (dependencies.length > 0) {
+                        const p = document.createElement('p');
+                        p.style.fontSize = '0.8em';
+                        p.style.color = '#99a8c0';
+                        p.textContent = 'Requires:';
+                        depSec.appendChild(p);
+                        dependencies.forEach(depId => {
+                            const tag = createDepTag(depId, nodeId, 'incoming');
+                            depSec.appendChild(tag);
+                        });
+                    }
+                    if (dependents.length > 0) {
+                        const p = document.createElement('p');
+                        p.style.fontSize = '0.8em';
+                        p.style.color = '#99a8c0';
+                        p.style.marginTop = '8px';
+                        p.textContent = 'Leads to:';
+                        depSec.appendChild(p);
+                        dependents.forEach(depId => {
+                            const tag = createDepTag(nodeId, depId, 'outgoing');
+                            depSec.appendChild(tag);
+                        });
+                    }
+                }
+                panelBody.appendChild(depSec);
+            }
+
+            function createDepTag(fromId, toId, direction) {
+                const tag = document.createElement('span');
+                tag.className = 'dep-tag';
+                const otherId = direction === 'incoming' ? fromId : toId;
+                const depNode = getNodeById(otherId);
+                tag.textContent = depNode ? (depNode.title || 'Node ' + otherId) : otherId;
+                tag.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('remove-edge-btn')) return;
+                    e.stopPropagation();
+                    openDetailPanel(otherId);
+                });
+                if (mode === 'edit') {
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'remove-edge-btn';
+                    removeBtn.innerHTML = '×';
+                    removeBtn.title = 'Remove connection';
+                    removeBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        removeEdge(fromId, toId);
+                    });
+                    tag.appendChild(removeBtn);
+                }
+                return tag;
+            }
+
+            function closeDetailPanel() {
+                detailPanel.classList.remove('active');
+                panelOverlay.classList.remove('active');
+                viewingNodeId = null;
+            }
+
+            function updateEditButtonVisibility() {
+                if (mode === 'edit' && viewingNodeId !== null) {
+                    editFromPanelBtn.classList.add('visible');
+                } else {
+                    editFromPanelBtn.classList.remove('visible');
+                }
+            }
+
+            panelClose.addEventListener('click', closeDetailPanel);
+            panelOverlay.addEventListener('click', closeDetailPanel);
+            editFromPanelBtn.addEventListener('click', () => {
+                if (viewingNodeId !== null && mode === 'edit') {
+                    const id = viewingNodeId;
+                    closeDetailPanel();
+                    setMode('edit');
+                    openSettingsPanel(id);
+                }
+            });
+
+            function getNodeColor(node) {
+                const combined = (node.title + ' ' + (node.subtitle || '') + ' ' + (node.description || '')).toLowerCase();
+                if (combined.includes('rocket')) return '#4a2525';
+                if (combined.includes('poly') || combined.includes('plastic')) return '#2d254a';
+                if (combined.includes('gas') || combined.includes('fuel')) return '#3d2a15';
+                if (combined.includes('wood') || combined.includes('bio')) return '#1e3a20';
+                if (combined.includes('nano') || combined.includes('quantum')) return '#2a1535';
+                return '#253040';
+            }
+
+            function setMode(newMode) {
+                mode = newMode;
+                modeCameraBtn.classList.toggle('active', mode === 'camera');
+                modeCreateBtn.classList.toggle('active', mode === 'create');
+                modeConnectBtn.classList.toggle('active', mode === 'connect');
+                modeEditBtn.classList.toggle('active', mode === 'edit');
+                if (mode === 'camera') {
+                    hintText.textContent = 'Pan: drag | Click node - view';
+                    canvas.style.cursor = 'grab';
+                } else if (mode === 'create') {
+                    hintText.textContent = 'Click - create node | Drag node - move';
+                    canvas.style.cursor = 'crosshair';
+                } else if (mode === 'connect') {
+                    hintText.textContent = 'Click node - select | Click another - connect';
+                    canvas.style.cursor = 'pointer';
+                } else if (mode === 'edit') {
+                    hintText.textContent = 'Double-click - settings | Drag node - move | ID shown in panel';
+                    canvas.style.cursor = 'default';
+                }
+                selectedNodeId = null;
+                closeDetailPanel();
+                closeSettingsPanel();
+                updateEditButtonVisibility();
+                if (viewingNodeId) {
+                    updateDetailPanel(viewingNodeId);
+                    updateEditButtonVisibility();
+                }
+            }
+
+            modeCameraBtn.addEventListener('click', () => setMode('camera'));
+            modeCreateBtn.addEventListener('click', () => setMode('create'));
+            modeConnectBtn.addEventListener('click', () => setMode('connect'));
+            modeEditBtn.addEventListener('click', () => setMode('edit'));
+
+            function exportData() {
+                const data = {
+                    nodes: nodes.map(n => ({
+                        id: n.id,
+                        x: n.x,
+                        y: n.y,
+                        radius: n.radius,
+                        shape: n.shape,
+                        title: n.title,
+                        subtitle: n.subtitle,
+                        description: n.description,
+                        iconUrl: n.iconUrl,
+                        tasks: n.tasks || []
+                    })),
+                    edges: edges.map(e => ({ from: e.from, to: e.to })),
+                    cameraX,
+                    cameraY,
+                    nextNodeId
+                };
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'quests.json';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+
+            function importData(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        if (!Array.isArray(data.nodes) || !Array.isArray(data.edges)) throw new Error('Invalid format');
+                        nodes = data.nodes.map(n => ({
+                            id: n.id,
+                            x: n.x,
+                            y: n.y,
+                            radius: n.radius || 18,
+                            shape: n.shape || 'circle',
+                            title: n.title || '',
+                            subtitle: n.subtitle || '',
+                            description: n.description || '',
+                            iconUrl: n.iconUrl || '',
+                            tasks: n.tasks || [],
+                            iconImage: null
+                        }));
+                        edges = data.edges.map(e => ({ from: e.from, to: e.to }));
+                        cameraX = data.cameraX || 0;
+                        cameraY = data.cameraY || 0;
+                        nextNodeId = data.nextNodeId || (Math.max(0, ...nodes.map(n => n.id)) + 1);
+                        nodes.forEach(node => {
+                            if (node.iconUrl) loadImage(node.iconUrl, (img) => { if (node.iconUrl === img.src) node.iconImage = img; });
+                        });
+                        selectedNodeId = null;
+                        editingNodeId = null;
+                        viewingNodeId = null;
+                        closeSettingsPanel();
+                        closeDetailPanel();
+                    } catch (err) { alert('Import error: ' + err.message); }
+                };
+                reader.readAsText(file);
+            }
+
+            exportBtn.addEventListener('click', exportData);
+            importBtn.addEventListener('click', () => importFileInput.click());
+            importFileInput.addEventListener('change', () => {
+                const file = importFileInput.files[0];
+                if (file) importData(file);
+                importFileInput.value = '';
+            });
+
+            function getEventPos(e) {
+                const rect = canvas.getBoundingClientRect();
+                return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+            }
+
+            function onPointerDown(e) {
+                const { x: mx, y: my } = getEventPos(e);
+                const hitNodeId = hitTestNode(mx, my);
+                isDragging = true;
+                hasMoved = false;
+                dragStartMouseX = e.clientX;
+                dragStartMouseY = e.clientY;
+                if (mode === 'camera') {
+                    dragType = 'camera';
+                    dragStartCameraX = cameraX;
+                    dragStartCameraY = cameraY;
+                } else {
+                    if (hitNodeId !== null) {
+                        dragType = 'node';
+                        dragNodeId = hitNodeId;
+                        const node = getNodeById(hitNodeId);
+                        if (node) { dragStartNodeWorldX = node.x;
+                            dragStartNodeWorldY = node.y; }
+                    } else {
+                        dragType = 'camera';
+                        dragStartCameraX = cameraX;
+                        dragStartCameraY = cameraY;
+                    }
+                }
+                canvas.setPointerCapture(e.pointerId);
+            }
+
+            function onPointerMove(e) {
+                if (!isDragging) return;
+                const dx = e.clientX - dragStartMouseX;
+                const dy = e.clientY - dragStartMouseY;
+                if (Math.abs(dx) > 2 || Math.abs(dy) > 2) hasMoved = true;
+                if (dragType === 'camera') { cameraX = dragStartCameraX - dx;
+                    cameraY = dragStartCameraY - dy; } else if (dragType === 'node' && dragNodeId !== null) {
+                    const node = getNodeById(dragNodeId);
+                    if (node) { node.x = dragStartNodeWorldX + dx;
+                        node.y = dragStartNodeWorldY + dy; }
+                }
+            }
+
+            function onPointerUp(e) {
+                if (!isDragging) return;
+                const { x: mx, y: my } = getEventPos(e);
+                const hitNodeId = hitTestNode(mx, my);
+                if (!hasMoved) {
+                    handleSingleClick(mx, my, hitNodeId);
+                }
+                isDragging = false;
+                dragType = null;
+                dragNodeId = null;
+                hasMoved = false;
+                if (mode === 'camera') canvas.style.cursor = 'grab';
+                else if (mode === 'create') canvas.style.cursor = 'crosshair';
+                else if (mode === 'connect') canvas.style.cursor = 'pointer';
+                else if (mode === 'edit') canvas.style.cursor = 'default';
+                canvas.releasePointerCapture(e.pointerId);
+            }
+
+            function handleSingleClick(mx, my, hitNodeId) {
+                if (mode === 'camera') {
+                    if (hitNodeId !== null) openDetailPanel(hitNodeId);
+                    else closeDetailPanel();
+                } else if (mode === 'create') {
+                    if (hitNodeId === null) {
+                        const world = screenToWorld(mx, my);
+                        nodes.push({
+                            id: nextNodeId++,
+                            x: world.x,
+                            y: world.y,
+                            radius: 18,
+                            shape: 'circle',
+                            title: '',
+                            subtitle: '',
+                            description: '',
+                            iconUrl: '',
+                            tasks: [],
+                            iconImage: null
+                        });
+                        selectedNodeId = null;
+                    }
+                } else if (mode === 'connect') {
+                    if (hitNodeId === null) selectedNodeId = null;
+                    else {
+                        if (selectedNodeId === null) selectedNodeId = hitNodeId;
+                        else if (selectedNodeId === hitNodeId) selectedNodeId = null;
+                        else {
+                            if (!edgeExists(selectedNodeId, hitNodeId)) edges.push({ from: selectedNodeId, to: hitNodeId });
+                            selectedNodeId = null;
+                        }
+                    }
+                } else if (mode === 'edit') {
+                    selectedNodeId = hitNodeId;
+                    if (hitNodeId !== null) openDetailPanel(hitNodeId);
+                }
+                if (mode === 'camera' && hitNodeId === null) closeDetailPanel();
+            }
+
+            canvas.addEventListener('dblclick', (e) => {
+                if (mode !== 'edit') return;
+                const { x: mx, y: my } = getEventPos(e);
+                const hitNodeId = hitTestNode(mx, my);
+                if (hitNodeId !== null) openSettingsPanel(hitNodeId);
+            });
+
+            canvas.addEventListener('pointerdown', onPointerDown);
+            canvas.addEventListener('pointermove', onPointerMove);
+            canvas.addEventListener('pointerup', onPointerUp);
+            canvas.addEventListener('pointerleave', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    dragType = null;
+                    dragNodeId = null;
+                    hasMoved = false;
+                    if (mode === 'camera') canvas.style.cursor = 'grab';
+                    else if (mode === 'create') canvas.style.cursor = 'crosshair';
+                    else if (mode === 'connect') canvas.style.cursor = 'pointer';
+                    else if (mode === 'edit') canvas.style.cursor = 'default';
+                }
+            });
+
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'Delete' && selectedNodeId !== null && mode === 'edit') {
+                    e.preventDefault();
+                    deleteNode(selectedNodeId);
+                    selectedNodeId = null;
+                    closeSettingsPanel();
+                    closeDetailPanel();
+                }
+                if (e.key === 'Escape') {
+                    if (assetPickerOverlay.classList.contains('active')) closeAssetPicker();
+                    else if (detailPanel.classList.contains('active')) closeDetailPanel();
+                    else if (settingsPanel.style.display === 'flex') closeSettingsPanel();
+                }
+            });
+
+            function drawShape(ctx, x, y, radius, shape) {
+                ctx.beginPath();
+                if (shape === 'circle') ctx.arc(x, y, radius, 0, Math.PI * 2);
+                else if (shape === 'star') {
+                    const spikes = 5,
+                        outerR = radius,
+                        innerR = radius * 0.45;
+                    let rot = -Math.PI / 2;
+                    for (let i = 0; i < spikes * 2; i++) {
+                        const r = i % 2 === 0 ? outerR : innerR;
+                        const angle = rot + (i * Math.PI) / spikes;
+                        if (i === 0) ctx.moveTo(x + r * Math.cos(angle), y + r * Math.sin(angle));
+                        else ctx.lineTo(x + r * Math.cos(angle), y + r * Math.sin(angle));
+                    }
+                    ctx.closePath();
+                } else {
+                    const sides = parseInt(shape, 10);
+                    if (isNaN(sides) || sides < 3) { ctx.arc(x, y, radius, 0, Math.PI * 2); return; }
+                    const step = (Math.PI * 2) / sides,
+                        startAngle = -Math.PI / 2;
+                    for (let i = 0; i < sides; i++) {
+                        const angle = startAngle + i * step;
+                        const px = x + radius * Math.cos(angle),
+                            py = y + radius * Math.sin(angle);
+                        if (i === 0) ctx.moveTo(px, py);
+                        else ctx.lineTo(px, py);
+                    }
+                    ctx.closePath();
+                }
+            }
+
+            function drawArrowhead(ctx, fromX, fromY, toX, toY, radius) {
+                const angle = Math.atan2(toY - fromY, toX - fromX);
+                const arrowLength = 10;
+                const arrowWidth = 5;
+                const tipX = toX - radius * Math.cos(angle);
+                const tipY = toY - radius * Math.sin(angle);
+                ctx.save();
+                ctx.translate(tipX, tipY);
+                ctx.rotate(angle);
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(-arrowLength, -arrowWidth);
+                ctx.lineTo(-arrowLength, arrowWidth);
+                ctx.closePath();
+                ctx.fillStyle = 'rgba(190,210,255,0.7)';
+                ctx.fill();
+                ctx.restore();
+            }
+
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#0d0d11';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                const gridSpacing = 100;
+                ctx.strokeStyle = 'rgba(255,255,255,0.025)';
+                ctx.lineWidth = 0.6;
+                const startGridX = -(cameraX % gridSpacing) - gridSpacing;
+                const startGridY = -(cameraY % gridSpacing) - gridSpacing;
+                ctx.beginPath();
+                for (let x = startGridX; x < canvas.width + gridSpacing; x += gridSpacing) { ctx.moveTo(x, 0);
+                    ctx.lineTo(x, canvas.height); }
+                for (let y = startGridY; y < canvas.height + gridSpacing; y += gridSpacing) { ctx.moveTo(0, y);
+                    ctx.lineTo(canvas.width, y); }
+                ctx.stroke();
+
+                for (const edge of edges) {
+                    const from = getNodeById(edge.from),
+                        to = getNodeById(edge.to);
+                    if (!from || !to) continue;
+                    const p1 = worldToScreen(from.x, from.y),
+                        p2 = worldToScreen(to.x, to.y);
+                    ctx.strokeStyle = 'rgba(190,210,255,0.5)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.lineTo(p2.x, p2.y);
+                    ctx.stroke();
+                    drawArrowhead(ctx, p1.x, p1.y, p2.x, p2.y, to.radius || 18);
+                }
+
+                for (const node of nodes) {
+                    const s = worldToScreen(node.x, node.y);
+                    const r = node.radius || 18,
+                        shape = node.shape || 'circle';
+                    const selected = (node.id === selectedNodeId) || (node.id === editingNodeId) || (node.id === viewingNodeId);
+                    ctx.save();
+                    ctx.beginPath();
+                    drawShape(ctx, s.x, s.y, r, shape);
+                    ctx.clip();
+                    if (selected) {
+                        ctx.fillStyle = 'rgba(100,180,255,0.2)';
+                        ctx.fill();
+                        ctx.strokeStyle = 'rgba(120,200,255,0.9)';
+                        ctx.lineWidth = 2.5;
+                        ctx.stroke();
+                    }
+                    ctx.fillStyle = getNodeColor(node);
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+                    ctx.lineWidth = 1.8;
+                    ctx.stroke();
+                    if (node.iconImage && node.iconImage.complete && node.iconImage.naturalWidth > 0) {
+                        const size = r * 1.6;
+                        ctx.drawImage(node.iconImage, s.x - size / 2, s.y - size / 2, size, size);
+                    } else {
+                        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+                        ctx.font = 'bold 12px "Segoe UI", Arial';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        const label = (node.title || '?').charAt(0).toUpperCase();
+                        ctx.fillText(label, s.x, s.y);
+                    }
+                    ctx.restore();
+                }
+                requestAnimationFrame(draw);
+            }
+
+            function resize() { canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight; }
+            window.addEventListener('resize', resize);
+            resize();
+            setMode('camera');
+            draw();
+            console.log('Quest editor ready.');
+        })();
+    </script>
+</body>
+</html>
